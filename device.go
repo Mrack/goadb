@@ -86,6 +86,7 @@ func (c *Device) DeviceInfo() (*DeviceInfo, error) {
 RunCommand runs the specified commands on a shell on the device.
 
 From the Android docs:
+
 	Run 'command arg1 arg2 ...' in a shell on the device, and return
 	its output and error streams. Note that arguments must be separated
 	by spaces. If an argument contains a space, it must be quoted with
@@ -93,6 +94,7 @@ From the Android docs:
 	will go very wrong.
 
 	Note that this is the non-interactive version of "adb shell"
+
 Source: https://android.googlesource.com/platform/system/core/+/master/adb/SERVICES.TXT
 
 This method quotes the arguments for you, and will return an error if any of them
@@ -126,13 +128,28 @@ func (c *Device) RunCommand(cmd string, args ...string) (string, error) {
 	return string(resp), wrapClientError(err, c, "RunCommand")
 }
 
+func (c *Device) RunCommandWithRoot(cmd string, args ...string) (string, error) {
+	var err error
+	var res string
+	if res, err = c.RunCommand("id", "-u"); res == "0\n" {
+		return c.RunCommand(cmd, args...)
+	} else if res, err = c.RunCommand("su", "0", "-c", "id -u"); strings.HasPrefix(res, "0") {
+		return c.RunCommand("su", append(append([]string{}, "-c", cmd), args...)...)
+	} else if res, err = c.RunCommand("su", "0", "id -u"); strings.HasPrefix(res, "0") {
+		return c.RunCommand("su", append(append([]string{}, cmd), args...)...)
+	}
+	return "", wrapClientError(err, c, "RunCommandWithRoot")
+}
+
 /*
 Remount, from the official adb command’s docs:
+
 	Ask adbd to remount the device's filesystem in read-write mode,
 	instead of read-only. This is usually necessary before performing
 	an "adb sync" or "adb push" request.
 	This request may not succeed on certain builds which do not allow
 	that.
+
 Source: https://android.googlesource.com/platform/system/core/+/master/adb/SERVICES.TXT
 */
 func (c *Device) Remount() (string, error) {
